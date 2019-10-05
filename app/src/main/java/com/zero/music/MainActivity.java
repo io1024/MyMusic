@@ -8,6 +8,8 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 
+import com.zero.music.activity.MusicPlayActivity;
+
 import java.util.List;
 
 import pub.devrel.easypermissions.EasyPermissions;

@@ -1,4 +1,4 @@
-package com.zero.music;
+package com.zero.music.adapter;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -9,6 +9,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.zero.music.R;
 
 import java.util.List;
 

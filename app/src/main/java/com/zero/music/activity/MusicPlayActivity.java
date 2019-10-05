@@ -1,23 +1,26 @@
-package com.zero.music;
+package com.zero.music.activity;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.os.Bundle;
-import android.os.Environment;
+import android.provider.MediaStore.Audio.Media;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ListView;
 import android.widget.SeekBar;
 
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-
+import com.zero.music.BaseActivity;
+import com.zero.music.R;
+import com.zero.music.adapter.MusicAdapter;
+import com.zero.music.bean.MediaMusicBean;
+import com.zero.music.database.MyQueryHandler;
 import com.zero.music.service.IMusicConnection;
 import com.zero.music.service.MusicPlayService;
 import com.zero.music.service.MusicServiceConnection;
 
-import java.io.File;
-import java.io.FileFilter;
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * 音乐播放 界面
@@ -28,13 +31,14 @@ public class MusicPlayActivity extends BaseActivity implements IMusicConnection 
 
     //@BindView(R.id.seekBar)
     //SeekBar seekBar;
-    private final String musicPath = Environment.getExternalStorageDirectory().getPath() + File.separator + "music";
-    private List<String> musicNamePaths;
-    private RecyclerView rcView;
+    //private final String musicPath = Environment.getExternalStorageDirectory().getPath() + File.separator + "music";
+    //private RecyclerView rcView;
+    private ListView listView;
     private SeekBar seekBar;
     private int currentPos = 0;
     private Intent musicIntent;
     private MusicServiceConnection mscc;
+    private ArrayList<MediaMusicBean> itemsFromCursor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,41 +46,41 @@ public class MusicPlayActivity extends BaseActivity implements IMusicConnection 
         setContentView(R.layout.activity_music_play);
         //ButterKnife.bind(this);
         seekBar = findViewById(R.id.seekBar);
-        rcView = findViewById(R.id.rcView);
+        //rcView = findViewById(R.id.rcView);
+        listView = findViewById(R.id.listView);
         initData();
         startMusicService();
     }
 
     private void initData() {
-        musicNamePaths = new ArrayList<>();
-        File file = new File(musicPath);
-        if (!file.exists()) {
-            file.mkdirs();
-        }
-        File[] files = file.listFiles(new FileFilter() {
+//        //保证RecyclerView的数据显示
+//        rcView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.VERTICAL, false));
+//        MusicPlayAdapter playAdapter = new MusicPlayAdapter(this, musicNamePaths);
+//        playAdapter.setOnItemClickListener(new MusicPlayAdapter.OnItemClickListener() {
+//            @Override
+//            public void onItemClick(View v, int position) {
+//                currentPos = position;
+//                playMusic();
+//            }
+//        });
+//        rcView.setAdapter(playAdapter);
+
+        final MusicAdapter musicAdapter = new MusicAdapter(this, null);
+        listView.setAdapter(musicAdapter);
+        ContentResolver resolver = this.getContentResolver();
+        MyQueryHandler queryHandler = new MyQueryHandler(resolver);
+        queryHandler.startQuery(100, musicAdapter, Media.EXTERNAL_CONTENT_URI,
+                new String[]{Media._ID, Media.TITLE, Media.SIZE, Media.DURATION, Media.DATA}, null, null, null);
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public boolean accept(File pathname) {
-                //自定义过滤器：筛选MP3
-                return pathname.getName().toLowerCase().endsWith(".mp3");
-            }
-        });
-        if (files != null && files.length > 0) {
-            for (File f : files) {
-                String name = f.getName();
-                musicNamePaths.add(musicPath + File.separator + name);
-            }
-        }
-        //保证RecyclerView的数据显示
-        rcView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.VERTICAL, false));
-        MusicPlayAdapter playAdapter = new MusicPlayAdapter(this, musicNamePaths);
-        playAdapter.setOnItemClickListener(new MusicPlayAdapter.OnItemClickListener() {
-            @Override
-            public void onItemClick(View v, int position) {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Cursor cursor = musicAdapter.getCursor();
+                itemsFromCursor = getItemsFromCursor(cursor);
                 currentPos = position;
                 playMusic();
             }
         });
-        rcView.setAdapter(playAdapter);
+
     }
 
     //混合方式开启服务
@@ -99,9 +103,9 @@ public class MusicPlayActivity extends BaseActivity implements IMusicConnection 
     }
 
     private void playMusic() {
-        if (musicNamePaths.size() > currentPos) {
-            String source = musicNamePaths.get(currentPos);
-            mscc.getMusicBindImpl().callPlayer(source);
+        if (itemsFromCursor.size() > currentPos) {
+            MediaMusicBean musicBean = itemsFromCursor.get(currentPos);
+            mscc.getMusicBindImpl().callPlayer(musicBean.getPath());
         }
     }
 
@@ -144,4 +148,17 @@ public class MusicPlayActivity extends BaseActivity implements IMusicConnection 
     }
 
 
+    /**
+     * @param cursor 游标
+     * @return 获取所有的 视频 数据
+     */
+    private ArrayList<MediaMusicBean> getItemsFromCursor(Cursor cursor) {
+        ArrayList<MediaMusicBean> items = new ArrayList<>();
+        cursor.moveToPosition(-1);
+        while (cursor.moveToNext()) {
+            MediaMusicBean bean = MediaMusicBean.getMediaMusicBean(cursor);
+            items.add(bean);
+        }
+        return items;
+    }
 }
